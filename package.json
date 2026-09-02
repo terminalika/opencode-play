@@ -1,0 +1,34 @@
+{
+  "name": "opencode-play",
+  "version": "0.1.0",
+  "description": "terminalika inside opencode: retro games on a full-screen route that pause themselves the moment the agent finishes or needs you.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": ["opencode", "opencode-plugin", "terminalika", "games", "focus"],
+  "repository": "github:terminalika/opencode-play",
+  "homepage": "https://terminalika.dev",
+  "exports": {
+    ".": "./src/tui.tsx"
+  },
+  "scripts": {
+    "build:wasm": "sh scripts/build-wasm.sh",
+    "test:wasm": "node --experimental-strip-types scripts/smoke.ts"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.4.5",
+    "@opentui/solid": ">=0.4.5",
+    "solid-js": ">=1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentui/core": { "optional": true },
+    "@opentui/solid": { "optional": true },
+    "solid-js": { "optional": true }
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.18.0"
+  },
+  "engines": {
+    "opencode": ">=1.18.0"
+  },
+  "files": ["src", "wasm", "README.md", "LICENSE"]
+}
