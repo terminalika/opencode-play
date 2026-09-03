@@ -282,23 +282,27 @@ const tui: TuiPlugin = async (api) => {
 		},
 	})
 
-	// The agent settled: what happens to a running game is the player's
-	// one-time choice (see askAutoPause). A parked game stays parked - the
-	// player is already with opencode.
-	api.event.on("session.idle", () => {
+	// The agent needs you - either it's done (session.idle) or it's
+	// blocked on a permission or a question - and what happens to a
+	// running game is the player's one-time choice (see askAutoPause). A
+	// parked game stays parked - the player is already with opencode.
+	function onNeedsAttention(doneMessage: string): void {
 		if (!session || session.parked) return
 		switch (api.kv.get<AutoPause>(KV_AUTO_PAUSE, "pause")) {
 			case "settle":
-				if (park("opencode's done - game parked.")) {
+				if (park(doneMessage)) {
 					api.ui.toast({ message: "Game parked - /play brings it back" })
 				}
 				break
 			case "no_pause":
 				break
 			default:
-				pauseGame("opencode", "opencode's done - you're up.")
+				pauseGame("opencode", doneMessage)
 		}
-	})
+	}
+	api.event.on("session.idle", () => onNeedsAttention("opencode's done - you're up."))
+	api.event.on("permission.asked", () => onNeedsAttention("opencode needs a permission - you're up."))
+	api.event.on("question.asked", () => onNeedsAttention("opencode has a question - you're up."))
 
 	api.lifecycle.onDispose(() => {
 		if (isRunning()) quitGame()
