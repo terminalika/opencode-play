@@ -21,7 +21,7 @@
 
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { createSignal, For } from "solid-js"
+import { createSignal, For, Show } from "solid-js"
 import type { TuiPlugin, TuiPluginApi } from "@opencode-ai/plugin/tui"
 import { isInterrupt, parseRawKey } from "./keys.ts"
 import { type Run, WebScreen } from "./screen.ts"
@@ -41,6 +41,11 @@ const tui: TuiPlugin = async (api) => {
 	const [frame, setFrame] = createSignal(0)
 	screen.onShow = () => setFrame((n) => n + 1)
 
+	/** The parked game's name, or null - drives the footer hint on both
+	 * the home screen and inside a session, so a parked game stays
+	 * visible no matter where the prompt takes you. */
+	const [parked, setParked] = createSignal<string | null>(null)
+
 	/** The one game that can be on: playing (route open) or parked. */
 	let session: {
 		game: string
@@ -57,6 +62,7 @@ const tui: TuiPlugin = async (api) => {
 	function park(message?: string): boolean {
 		if (!session || session.parked) return false
 		session.parked = true
+		setParked(session.game)
 		pauseGame("", message ?? `Parked - ${RETURN_HINT}`)
 		api.route.navigate(session.back.name, session.back.params)
 		return true
@@ -66,6 +72,7 @@ const tui: TuiPlugin = async (api) => {
 		if (!session || !session.parked) return
 		session.parked = false
 		session.back = currentRoute()
+		setParked(null)
 		// Still paused; the game's own hint line says what SPACE, Esc and
 		// alt+g do.
 		pauseGame("", "Paused")
@@ -99,6 +106,7 @@ const tui: TuiPlugin = async (api) => {
 		} finally {
 			const wasParked = session?.parked
 			session = null
+			setParked(null)
 			screen.uninstall()
 			if (!wasParked) {
 				const back = currentRoute()
@@ -116,21 +124,30 @@ const tui: TuiPlugin = async (api) => {
 	}
 
 	function askAutoPause(then?: () => void): void {
+		let answered = false
 		const pick = (mode: AutoPause) => {
+			answered = true
 			api.kv.set(KV_AUTO_PAUSE, mode)
 			api.ui.dialog.clear()
 			then?.()
 		}
-		api.ui.dialog.replace(() => (
-			<api.ui.DialogSelect
-				title="When the agent settles while you're playing, terminalika should..."
-				options={[
-					{ title: "Pause the game", description: "freeze it with a notice; SPACE resumes", value: "pause", onSelect: () => pick("pause") },
-					{ title: "Settle the game", description: "park it and hand the keyboard back", value: "settle", onSelect: () => pick("settle") },
-					{ title: "Don't pause", description: "keep playing", value: "no_pause", onSelect: () => pick("no_pause") },
-				]}
-			/>
-		))
+		api.ui.dialog.replace(
+			() => (
+				<api.ui.DialogSelect
+					title={"Thanks for installing opencode-play.\nWhen the agent settles while you're playing, opencode-play should..."}
+					options={[
+						{ title: "Pause the game (default)", description: "freeze it; SPACE resumes", value: "pause", onSelect: () => pick("pause") },
+						{ title: "Settle the game", description: "park it and hand the keyboard back", value: "settle", onSelect: () => pick("settle") },
+						{ title: "Don't pause", description: "keep playing", value: "no_pause", onSelect: () => pick("no_pause") },
+					]}
+				/>
+			),
+			// Dismissed without an answer (Escape, clicking away): default
+			// to pausing rather than leaving the choice unset forever.
+			() => {
+				if (!answered) pick("pause")
+			},
+		)
 	}
 
 	/**
@@ -263,22 +280,33 @@ const tui: TuiPlugin = async (api) => {
 		bindings: [{ key: "alt+g", cmd: "terminalika.menu" }],
 	})
 
-	// A footer hint on the home screen, next to the host's own
-	// "tab agents  ctrl+p commands".
-	// A hint under the home prompt, matching the host footer's key/label
-	// styling ("tab agents  ctrl+p commands"). home_footer never renders in
-	// 1.18.25, so this sits in home_bottom instead.
+	// A footer hint, matching the host footer's key/label styling ("tab
+	// agents  ctrl+p commands"), plus a note when a game is parked - it's
+	// off-screen but still on, and this is the only place that says so.
+	// home_footer never renders in 1.18.25, so home_bottom carries it on
+	// the home screen; session_prompt_right carries the same hint once a
+	// prompt's been sent and the view has moved off home_bottom entirely.
+	type HintCtx = { theme: { current: { text: unknown; textMuted: unknown } } }
+	const hint = (ctx: HintCtx) => (
+		<box flexDirection="row" gap={1}>
+			<text fg={ctx.theme.current.text as never}>alt+g</text>
+			<text fg={ctx.theme.current.textMuted as never}>games</text>
+			<Show when={parked()}>
+				{(game: () => string) => (
+					<box flexDirection="row" gap={1}>
+						<text fg={ctx.theme.current.textMuted as never}>·</text>
+						<text fg={ctx.theme.current.text as never}>{game()} parked</text>
+						<text fg={ctx.theme.current.textMuted as never}>/play resumes</text>
+					</box>
+				)}
+			</Show>
+		</box>
+	)
 	api.slots.register({
 		order: 400,
 		slots: {
-			home_bottom(ctx: { theme: { current: { text: unknown; textMuted: unknown } } }, _props: unknown) {
-				return (
-					<box flexDirection="row" gap={1}>
-						<text fg={ctx.theme.current.text as never}>alt+g</text>
-						<text fg={ctx.theme.current.textMuted as never}>games</text>
-					</box>
-				)
-			},
+			home_bottom: (ctx: HintCtx, _props: unknown) => hint(ctx),
+			session_prompt_right: (ctx: HintCtx, _props: unknown) => hint(ctx),
 		},
 	})
 
@@ -303,6 +331,12 @@ const tui: TuiPlugin = async (api) => {
 	api.event.on("session.idle", () => onNeedsAttention("opencode's done - you're up."))
 	api.event.on("permission.asked", () => onNeedsAttention("opencode needs a permission - you're up."))
 	api.event.on("question.asked", () => onNeedsAttention("opencode has a question - you're up."))
+
+	// Ask the auto-pause preference up front, at plugin init, instead of
+	// waiting for the first /play - most players would never go looking
+	// for the setting otherwise. Still a one-time choice: once kv has an
+	// answer, this (and startSession's own check) never asks again.
+	if (api.kv.get(KV_AUTO_PAUSE) === undefined) askAutoPause()
 
 	api.lifecycle.onDispose(() => {
 		if (isRunning()) quitGame()
