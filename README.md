@@ -1,5 +1,7 @@
 # opencode-play
 
+![terminalika inside opencode: /play opens a game on a full-screen route, and it pauses the moment opencode needs you](.github/demo.gif)
+
 [terminalika](https://terminalika.dev) as an [opencode](https://opencode.ai)
 TUI plugin: the retro games from terminalika-core, running on a full-screen
 route inside opencode, that pause themselves the moment the agent finishes
