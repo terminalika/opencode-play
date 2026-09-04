@@ -247,9 +247,9 @@ const tui: TuiPlugin = async (api) => {
 	api.keymap.registerLayer({
 		commands: [
 			{
-				name: "terminalika.play",
-				title: "terminalika: play (back to the parked game, or pick one)",
-				category: "terminalika",
+				name: "opencode-play.play",
+				title: "opencode-play: play (back to the parked game, or pick one)",
+				category: "opencode-play",
 				namespace: "palette",
 				slashName: "play",
 				run() {
@@ -259,17 +259,17 @@ const tui: TuiPlugin = async (api) => {
 				},
 			},
 			{
-				name: "terminalika.menu",
-				title: "terminalika: game menu",
-				category: "terminalika",
+				name: "opencode-play.menu",
+				title: "opencode-play: game menu",
+				category: "opencode-play",
 				namespace: "palette",
 				slashName: "play-menu",
 				run: () => openMenu(),
 			},
 			{
-				name: "terminalika.stop",
-				title: "terminalika: stop the game",
-				category: "terminalika",
+				name: "opencode-play.stop",
+				title: "opencode-play: stop the game",
+				category: "opencode-play",
 				namespace: "palette",
 				slashName: "play-stop",
 				run: () => stopSession(),
@@ -277,7 +277,7 @@ const tui: TuiPlugin = async (api) => {
 		],
 		// alt+g from the editor too - in the game the raw input handler
 		// catches it first, so this only fires when opencode has the keyboard.
-		bindings: [{ key: "alt+g", cmd: "terminalika.menu" }],
+		bindings: [{ key: "alt+g", cmd: "opencode-play.menu" }],
 	})
 
 	// A footer hint, matching the host footer's key/label styling ("tab
