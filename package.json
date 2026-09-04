@@ -1,6 +1,6 @@
 {
   "name": "opencode-play",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "terminalika inside opencode: retro games on a full-screen route that pause themselves the moment the agent finishes or needs you.",
   "license": "MIT",
   "type": "module",
