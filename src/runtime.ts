@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const GAMES = ["snake", "tetris", "2048", "mines"] as const;
+export const GAMES = ["snake", "tetris", "2048", "mines", "sudoku"] as const;
 export type GameName = (typeof GAMES)[number];
 
 export interface RunOptions {

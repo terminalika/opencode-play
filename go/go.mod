@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/gdamore/tcell/v2 v2.13.10
-	github.com/terminalika/terminalika-core v0.3.0
+	github.com/terminalika/terminalika-core v0.8.0
 )
 
 require (

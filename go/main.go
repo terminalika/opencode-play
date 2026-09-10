@@ -65,7 +65,10 @@ func main() {
 	}
 	defer screen.Fini()
 
-	eng := newEngine(screen, game, *releases, *mod) // sets the game's key labels first
+	eng, err := newEngine(screen, game, *releases, *mod) // sets the game's key labels first
+	if err != nil {
+		return
+	}
 	cols, rows := gridSize(game)
 	screen.SetSize(cols, rows)
 	if fn := js.Global().Get("tkGrid"); fn.Type() == js.TypeFunction {

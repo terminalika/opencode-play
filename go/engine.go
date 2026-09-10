@@ -101,19 +101,21 @@ type heldKey struct {
 	timeout time.Duration
 }
 
-func newEngine(screen tcell.Screen, game core.Game, releases bool, mod string) *engine {
+func newEngine(screen tcell.Screen, game core.Game, releases bool, mod string) (*engine, error) {
 	// Space and R are handled here; ESC and alt+g never arrive: the host
 	// parks the game on ESC and opens its game menu on alt+g
 	// (src/tui.tsx), so that is what the hint says - with the host's name
 	// for the alt key, "option" on a Mac.
-	core.SetGlobalKeys(game, core.GlobalKeys{Pause: "Space", Reset: "R", Leave: "Esc", LeaveAction: "back to opencode", Switch: mod + "+g"})
+	if err := core.SetGlobalKeys(game, core.GlobalKeys{Pause: "Space", Reset: "R", Leave: "Esc", LeaveAction: "back to opencode", Switch: mod + "+g"}); err != nil {
+		return nil, err
+	}
 	return &engine{
 		screen:   screen,
 		game:     game,
 		releases: releases,
 		held:     make(map[keyID]heldKey),
 		commands: make(chan command, 16),
-	}
+	}, nil
 }
 
 // exposeCommands registers tkPause / tkResume / tkQuit for the host. They
@@ -173,6 +175,7 @@ func (e *engine) run() {
 		if e.notice != nil && e.noticeCurrent() {
 			e.drawNotice(e.notice)
 		}
+		e.screen.Show()
 		<-ticker.C
 	}
 }
@@ -355,38 +358,22 @@ func styleForAgent(agent string) tcell.Style {
 	}
 }
 
-// drawNotice overlays n on the game's own pause/game-over band - the game
-// says where it is (core.OverlayReporter) - widened to cover it completely
-// so the two never show side by side; with no band up, centered on the
-// screen.
+// drawNotice overlays n centered on the screen. Games no longer report a
+// pause/game-over band of their own once the launcher's notice replaced
+// them, so the notice no longer has to widen itself over one.
 func (e *engine) drawNotice(n *notice) {
 	w, h := e.screen.Size()
 	startY := h / 2
-	left, right := -1, -1
-	if band, ok := core.OverlayAreaOf(e.game); ok {
-		startY = band.Y
-		left, right = band.X, band.X+band.W-1
-	}
 	lines := n.lines
 	if len(lines) > 1 {
 		lines = padBlock(lines)
 	}
 	for i, line := range lines {
 		x := w/2 - len([]rune(line))/2
-		if i == 0 || len(lines) > 1 {
-			if left >= 0 && left < x {
-				line = strings.Repeat(" ", x-left) + line
-				x = left
-			}
-			if end := x + len([]rune(line)); right >= 0 && right+1 > end {
-				line += strings.Repeat(" ", right+1-end)
-			}
-		}
 		for j, r := range []rune(line) {
 			e.screen.SetContent(x+j, startY+i, r, nil, n.style)
 		}
 	}
-	e.screen.Show()
 }
 
 func padBlock(lines []string) []string {
